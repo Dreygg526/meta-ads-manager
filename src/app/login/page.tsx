@@ -1,11 +1,23 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [msg, setMsg] = useState("");
+
+  // Links Supabase sends from the server (Team invites, admin-sent links) arrive with the session in
+  // the URL #hash instead of ?code. The hash survives the redirects to here; turn it into a session.
+  useEffect(() => {
+    const h = new URLSearchParams(location.hash.slice(1));
+    const access_token = h.get("access_token"), refresh_token = h.get("refresh_token");
+    if (!access_token || !refresh_token) return;
+    supabaseBrowser().auth.setSession({ access_token, refresh_token }).then(({ error }) => {
+      if (error) { setState("error"); setMsg("That sign-in link has expired. Ask for a new one."); }
+      else location.replace("/");
+    });
+  }, []);
 
   async function send(e: React.FormEvent) {
     e.preventDefault();
