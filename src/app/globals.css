@@ -13,6 +13,24 @@
   --green: #36a269;
 }
 
+/* Tailwind 4 resets buttons to the arrow cursor; give everything clickable the pointing hand. */
+a[href],
+button:not(:disabled),
+[role="button"],
+[role="switch"]:not(:disabled),
+select:not(:disabled),
+summary,
+input[type="checkbox"]:not(:disabled),
+input[type="date"]:not(:disabled),
+label:has(> select) {
+  cursor: pointer;
+}
+button:disabled,
+select:disabled,
+input:disabled {
+  cursor: not-allowed;
+}
+
 body {
   background: var(--bg);
   color: var(--fg);
