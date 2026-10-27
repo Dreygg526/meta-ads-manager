@@ -24,12 +24,22 @@ export async function POST(req: NextRequest) {
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return NextResponse.json({ error: "Enter a valid email." }, { status: 400 });
     if (!["admin", "viewer"].includes(role)) return NextResponse.json({ error: "Bad role." }, { status: 400 });
     const sb = supabaseAdmin();
-    const { error } = await sb.from("members").upsert({ email, name: name || null, role, added_by: me.email });
+    const { data: existing } = await sb.from("members").select("email").eq("email", email).maybeSingle();
+    if (existing) {
+      // role/name change only — no email
+      const { error } = await sb.from("members").update({ name: name || null, role }).eq("email", email);
+      if (error) throw error;
+      return NextResponse.json({ ok: true, invited: false });
+    }
+    const { error } = await sb.from("members").insert({ email, name: name || null, role, added_by: me.email });
     if (error) throw error;
-    // Creates the auth user if new and sends the invite email; an existing user just signs in normally.
-    const origin = req.nextUrl.origin;
-    await sb.auth.admin.inviteUserByEmail(email, { redirectTo: `${origin}/auth/callback` }).catch(() => {});
-    return NextResponse.json({ ok: true });
+    // New person: create the auth user and send the invite email.
+    const { error: inviteError } = await sb.auth.admin.inviteUserByEmail(email, { redirectTo: `${req.nextUrl.origin}/auth/callback` });
+    if (inviteError && !/already been registered|already registered/i.test(inviteError.message)) {
+      // they're on the team, but the email didn't go — say so instead of pretending it did
+      return NextResponse.json({ error: `Added to the team, but the invite email failed: ${inviteError.message}. They can still sign in at the login page.` }, { status: 502 });
+    }
+    return NextResponse.json({ ok: true, invited: !inviteError });
   } catch (e) {
     return fail(e);
   }
