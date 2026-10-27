@@ -10,8 +10,10 @@ export default function Login() {
   async function send(e: React.FormEvent) {
     e.preventDefault();
     setState("sending");
+    const addr = email.trim().toLowerCase();
+    await fetch("/auth/ensure", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: addr }) });
     const { error } = await supabaseBrowser().auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
+      email: addr,
       // invite-only: unknown emails get nothing
       options: { shouldCreateUser: false, emailRedirectTo: `${location.origin}/auth/callback` },
     });
